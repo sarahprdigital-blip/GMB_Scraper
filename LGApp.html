@@ -1,0 +1,1179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Business Finder Pro - Google Places API Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+
+      .glass-effect {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+      }
+
+      .loading-spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3b82f6;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .fade-in {
+        animation: fadeIn 0.5s ease-in;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .gradient-bg {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+
+      .error-box {
+        background-color: #fee2e2;
+        border-left: 4px solid #ef4444;
+      }
+
+      .success-box {
+        background-color: #d1fae5;
+        border-left: 4px solid #10b981;
+      }
+    </style>
+    <base target="_blank" />
+  </head>
+
+  <body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+      <div class="container mx-auto px-6 py-6">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <svg
+              class="w-8 h-8"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+              />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+            <h1 class="text-2xl font-bold">Business Finder Pro</h1>
+          </div>
+          <div class="text-sm opacity-90">Powered by Google Places API</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- API Key Configuration Modal -->
+    <div
+      id="apiModal"
+      class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all"
+      >
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold text-gray-800">
+            API Configuration Required
+          </h2>
+        </div>
+        <div class="space-y-4">
+          <div
+            class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800"
+          >
+            <strong>Important:</strong> You need a valid Google Places API key
+            to fetch real business data.
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Google Places API Key</label
+            >
+            <input
+              type="password"
+              id="apiKeyInput"
+              placeholder="AIzaSy..."
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-mono text-sm"
+            />
+            <div class="text-xs text-gray-500 mt-2 space-y-1">
+              <p>
+                1. Go to
+                <a
+                  href="https://console.cloud.google.com/"
+                  target="_blank"
+                  class="text-blue-600 hover:underline font-medium"
+                  >Google Cloud Console</a
+                >
+              </p>
+              <p>2. Create a project → Enable "Places API (New)"</p>
+              <p>3. Create credentials → API Key</p>
+              <p>4. Copy and paste the key here</p>
+            </div>
+          </div>
+          <div class="flex space-x-3">
+            <button
+              onclick="saveApiKey()"
+              class="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              Save & Continue
+            </button>
+            <button
+              onclick="useDemoMode()"
+              class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            >
+              Use Demo Mode
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-6 py-8">
+      <!-- Alert Messages -->
+      <div id="alertBox" class="hidden mb-6 rounded-lg p-4 fade-in">
+        <div class="flex items-start">
+          <div id="alertIcon" class="flex-shrink-0"></div>
+          <div class="ml-3">
+            <h3 id="alertTitle" class="text-sm font-medium"></h3>
+            <div id="alertMessage" class="mt-1 text-sm opacity-90"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search Section -->
+      <div
+        class="glass-effect rounded-2xl shadow-xl p-8 mb-8 border border-gray-200"
+      >
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold text-gray-800">Search Businesses</h2>
+          <div class="flex items-center space-x-3">
+            <span
+              id="modeIndicator"
+              class="text-xs px-3 py-1 rounded-full bg-gray-200 text-gray-600 font-medium hidden"
+              >Demo Mode</span
+            >
+            <button
+              onclick="openApiModal()"
+              class="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <span>Change API Key</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- Keywords Input -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-semibold text-gray-700 mb-2"
+              >Search Keywords <span class="text-red-500">*</span></label
+            >
+            <input
+              type="text"
+              id="keywords"
+              placeholder="e.g., Italian restaurants in Manhattan, plumbers in London..."
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-700"
+            />
+          </div>
+
+          <!-- Country Selection -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2"
+              >Country/Region</label
+            >
+            <select
+              id="country"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white text-gray-700"
+            >
+              <option value="us">United States</option>
+              <option value="gb">United Kingdom</option>
+              <option value="ca">Canada</option>
+              <option value="au">Australia</option>
+              <option value="de">Germany</option>
+              <option value="fr">France</option>
+              <option value="it">Italy</option>
+              <option value="es">Spain</option>
+              <option value="jp">Japan</option>
+              <option value="in">India</option>
+              <option value="br">Brazil</option>
+              <option value="mx">Mexico</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap gap-4 mt-6">
+          <button
+            onclick="searchBusinesses()"
+            id="searchBtn"
+            class="flex-1 md:flex-none bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 font-semibold shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <span>Search Businesses</span>
+          </button>
+          <button
+            onclick="clearResults()"
+            class="flex-1 md:flex-none bg-gray-200 text-gray-700 px-8 py-3 rounded-lg hover:bg-gray-300 transition-all font-semibold flex items-center justify-center space-x-2"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+            <span>Clear</span>
+          </button>
+        </div>
+
+        <!-- Progress Bar -->
+        <div id="progressContainer" class="hidden mt-6">
+          <div class="flex justify-between text-sm text-gray-600 mb-2">
+            <span id="progressStatus">Initializing...</span>
+            <span id="progressText">0%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div
+              id="progressBar"
+              class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style="width: 0%"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results Section -->
+      <div id="resultsSection" class="hidden">
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <h3 class="text-xl font-bold text-gray-800">Search Results</h3>
+            <p id="resultCount" class="text-sm text-gray-500 mt-1"></p>
+          </div>
+          <button
+            onclick="downloadExcel()"
+            id="downloadBtn"
+            class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-all flex items-center space-x-2 shadow-md"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            <span>Download Excel</span>
+          </button>
+        </div>
+
+        <!-- Results Table -->
+        <div
+          class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200"
+        >
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th
+                    class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                  >
+                    Business Name
+                  </th>
+                  <th
+                    class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                  >
+                    Address
+                  </th>
+                  <th
+                    class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                  >
+                    Phone
+                  </th>
+                  <th
+                    class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                  >
+                    Website
+                  </th>
+                  <th
+                    class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onclick="sortResults('rating')"
+                    title="Click to sort by Rating"
+                  >
+                    <div class="flex items-center space-x-1">
+                      <span>Rating</span>
+                      <svg
+                        class="w-4 h-4 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+                        />
+                      </svg>
+                    </div>
+                  </th>
+                  <th
+                    class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onclick="sortResults('reviews')"
+                    title="Click to sort by Reviews"
+                  >
+                    <div class="flex items-center space-x-1">
+                      <span>Reviews</span>
+                      <svg
+                        class="w-4 h-4 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+                        />
+                      </svg>
+                    </div>
+                  </th>
+                  <th
+                    class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                  >
+                    Weaknesses & Solutions
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="resultsTable" class="divide-y divide-gray-200">
+                <!-- Results will be populated here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="text-center py-16">
+        <div
+          class="bg-blue-50 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6"
+        >
+          <svg
+            class="w-12 h-12 text-blue-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
+        <h3 class="text-xl font-semibold text-gray-800 mb-2">
+          Ready to Search
+        </h3>
+        <p class="text-gray-500 max-w-md mx-auto">
+          Enter keywords and select a country to find real business data using
+          Google's official Places API.
+        </p>
+      </div>
+    </main>
+
+    <!-- Toast Notification -->
+    <div
+      id="toast"
+      class="fixed bottom-4 right-4 transform translate-y-20 opacity-0 transition-all duration-300 z-50"
+    >
+      <div
+        class="bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2"
+      >
+        <span id="toastMessage">Notification</span>
+      </div>
+    </div>
+
+    <script>
+      // State Management
+      let apiKey = localStorage.getItem("googlePlacesApiKey") || "";
+      let searchResults = [];
+      let isSearching = false;
+      let isDemoMode = false;
+      let currentSortColumn = null;
+      let currentSortDirection = "desc";
+
+      // Sorting Functionality
+      function sortResults(column) {
+        if (searchResults.length === 0) return;
+
+        // Toggle direction if clicking same column, else default to 'desc' (high to low)
+        if (currentSortColumn === column) {
+          currentSortDirection =
+            currentSortDirection === "desc" ? "asc" : "desc";
+        } else {
+          currentSortColumn = column;
+          currentSortDirection = "desc";
+        }
+
+        searchResults.sort((a, b) => {
+          let valA = a[column];
+          let valB = b[column];
+
+          if (column === "rating") {
+            // Treat 'No rating' as the lowest possible value (-1)
+            valA = valA === "No rating" ? -1 : parseFloat(valA);
+            valB = valB === "No rating" ? -1 : parseFloat(valB);
+          }
+
+          if (column === "reviews") {
+            valA = parseInt(valA) || 0;
+            valB = parseInt(valB) || 0;
+          }
+
+          if (valA < valB) return currentSortDirection === "asc" ? -1 : 1;
+          if (valA > valB) return currentSortDirection === "asc" ? 1 : -1;
+          return 0;
+        });
+
+        // Re-render the table with the sorted data
+        displayResults();
+      }
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", () => {
+        if (!apiKey) {
+          document.getElementById("apiModal").classList.remove("hidden");
+        } else {
+          document.getElementById("apiModal").classList.add("hidden");
+        }
+
+        // Check if previously in demo mode
+        if (localStorage.getItem("demoMode") === "true") {
+          enableDemoMode();
+        }
+      });
+
+      // API Key Management
+      function openApiModal() {
+        document.getElementById("apiKeyInput").value = apiKey;
+        document.getElementById("apiModal").classList.remove("hidden");
+      }
+
+      function closeApiModal() {
+        document.getElementById("apiModal").classList.add("hidden");
+      }
+
+      function saveApiKey() {
+        const key = document.getElementById("apiKeyInput").value.trim();
+        if (key && key.length > 10) {
+          apiKey = key;
+          localStorage.setItem("googlePlacesApiKey", key);
+          localStorage.removeItem("demoMode");
+          isDemoMode = false;
+          document.getElementById("modeIndicator").classList.add("hidden");
+          closeApiModal();
+          showAlert(
+            "success",
+            "API Key Saved",
+            "Your Google Places API key has been saved. You can now search for real business data.",
+          );
+        } else {
+          showAlert(
+            "error",
+            "Invalid API Key",
+            'Please enter a valid Google Places API key (it should start with "AIza" and be much longer).',
+          );
+        }
+      }
+
+      function useDemoMode() {
+        enableDemoMode();
+        closeApiModal();
+        showAlert(
+          "warning",
+          "Demo Mode Activated",
+          "You are using demo mode with sample data. Add a real API key to get actual business data.",
+        );
+      }
+
+      function enableDemoMode() {
+        isDemoMode = true;
+        localStorage.setItem("demoMode", "true");
+        document.getElementById("modeIndicator").classList.remove("hidden");
+      }
+
+      // Alert System
+      function showAlert(type, title, message) {
+        const alertBox = document.getElementById("alertBox");
+        const alertIcon = document.getElementById("alertIcon");
+        const alertTitle = document.getElementById("alertTitle");
+        const alertMessage = document.getElementById("alertMessage");
+
+        alertBox.className = `mb-6 rounded-lg p-4 fade-in ${type === "error" ? "error-box" : type === "success" ? "success-box" : "bg-yellow-50 border-l-4 border-yellow-400"}`;
+
+        const iconSvg =
+          type === "error"
+            ? '<svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+            : type === "success"
+              ? '<svg class="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+              : '<svg class="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+
+        alertIcon.innerHTML = iconSvg;
+        alertTitle.textContent = title;
+        alertTitle.className = `text-sm font-medium ${type === "error" ? "text-red-800" : type === "success" ? "text-green-800" : "text-yellow-800"}`;
+        alertMessage.textContent = message;
+        alertMessage.className = `mt-1 text-sm ${type === "error" ? "text-red-700" : type === "success" ? "text-green-700" : "text-yellow-700"}`;
+
+        alertBox.classList.remove("hidden");
+
+        // Auto-hide after 8 seconds
+        setTimeout(() => {
+          alertBox.classList.add("hidden");
+        }, 8000);
+      }
+
+      // Search Functionality
+      async function searchBusinesses() {
+        if (isSearching) return;
+
+        const keywords = document.getElementById("keywords").value.trim();
+        const countrySelect = document.getElementById("country");
+        const country = countrySelect.value;
+        const countryName =
+          countrySelect.options[countrySelect.selectedIndex].text;
+
+        if (!keywords) {
+          showAlert(
+            "error",
+            "Missing Keywords",
+            'Please enter search keywords (e.g., "coffee shops in Seattle").',
+          );
+          return;
+        }
+
+        if (!apiKey && !isDemoMode) {
+          openApiModal();
+          return;
+        }
+
+        isSearching = true;
+        searchResults = [];
+
+        // UI Updates
+        document.getElementById("searchBtn").disabled = true;
+        document.getElementById("searchBtn").innerHTML =
+          '<div class="loading-spinner mr-2"></div><span>Searching...</span>';
+        document.getElementById("progressContainer").classList.remove("hidden");
+        document.getElementById("emptyState").classList.add("hidden");
+        document.getElementById("resultsSection").classList.add("hidden");
+        document.getElementById("alertBox").classList.add("hidden");
+
+        updateProgress(10, "Connecting to Google Places API...");
+
+        try {
+          if (isDemoMode) {
+            updateProgress(50, "Generating demo data...");
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            searchResults = generateDemoData(keywords);
+            updateProgress(100, "Complete");
+          } else {
+            // Try to fetch real data
+            // Append country to query to bypass IP location bias
+            const searchQuery = keywords
+              .toLowerCase()
+              .includes(countryName.toLowerCase())
+              ? keywords
+              : `${keywords} in ${countryName}`;
+            const places = await fetchPlaces(searchQuery, country);
+
+            if (places.length === 0) {
+              throw new Error("No businesses found for your search criteria.");
+            }
+
+            updateProgress(
+              60,
+              `Found ${places.length} businesses. Getting details...`,
+            );
+
+            // Process results
+            searchResults = places.map((place) => {
+              const businessData = {
+                name: (place.displayName && place.displayName.text) || "N/A",
+                address: place.formattedAddress || "N/A",
+                phone: place.nationalPhoneNumber || "Not listed",
+                website: place.websiteUri || "Not listed",
+                rating: place.rating || "No rating",
+                reviews: place.userRatingCount || 0,
+                placeId: place.id,
+                types: place.types || [],
+              };
+              businessData.analysis = analyzeBusiness(businessData);
+              return businessData;
+            });
+
+            updateProgress(100, "Complete");
+          }
+
+          // Display results
+          displayResults();
+
+          if (isDemoMode) {
+            showAlert(
+              "warning",
+              "Demo Data Shown",
+              "This is simulated data. Add a real API key to get actual Google Places data.",
+            );
+          } else {
+            showToast(`Found ${searchResults.length} businesses`);
+          }
+        } catch (error) {
+          console.error("Search error:", error);
+          showAlert(
+            "error",
+            "Search Failed",
+            error.message ||
+              "Failed to fetch data. Please check your API key and try again.",
+          );
+          document.getElementById("emptyState").classList.remove("hidden");
+        } finally {
+          resetSearch();
+        }
+      }
+
+      async function fetchPlaces(query, country) {
+        // Using the New Places API (Places API v1)
+        // Note: In production, this MUST go through a backend proxy to protect your API key
+        // Direct client-side calls will expose your key and likely fail due to CORS/restrictions
+
+        const endpoint = "https://places.googleapis.com/v1/places:searchText";
+
+        const requestBody = {
+          textQuery: query,
+          regionCode: country.toUpperCase(),
+          pageSize: 20,
+          languageCode: "en",
+        };
+
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Goog-Api-Key": apiKey,
+              "X-Goog-FieldMask":
+                "places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.rating,places.userRatingCount,places.id,places.types",
+            },
+            body: JSON.stringify(requestBody),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+
+            if (response.status === 403) {
+              throw new Error(
+                "API Key invalid or Places API not enabled. Please check your Google Cloud Console settings.",
+              );
+            } else if (response.status === 429) {
+              throw new Error(
+                "Rate limit exceeded. Please wait a moment and try again.",
+              );
+            } else if (response.status === 400) {
+              throw new Error(
+                `Bad Request: ${errorData.error?.message || "Check your search parameters"}`,
+              );
+            } else {
+              throw new Error(
+                `API Error: ${errorData.error?.message || response.statusText}`,
+              );
+            }
+          }
+
+          const data = await response.json();
+          return data.places || [];
+        } catch (error) {
+          if (
+            error.message.includes("Failed to fetch") ||
+            error.message.includes("CORS")
+          ) {
+            throw new Error(
+              "Direct API access blocked. This tool requires a backend proxy to work with real data in production. Error: " +
+                error.message,
+            );
+          }
+          throw error;
+        }
+      }
+
+      function generateDemoData(query) {
+        // Generate realistic demo data ONLY when explicitly in demo mode
+        const businessTypes = query.toLowerCase().includes("restaurant")
+          ? ["Trattoria", "Ristorante", "Cucina", "Bistro", "Grill"]
+          : query.toLowerCase().includes("plumber")
+            ? [
+                "Plumbing Co",
+                "Drain Experts",
+                "Pipe Masters",
+                "Flow Solutions",
+                "Hydro Fix",
+              ]
+            : query.toLowerCase().includes("law")
+              ? [
+                  "Legal Associates",
+                  "Law Group",
+                  "Attorneys at Law",
+                  "Legal Services",
+                  "Law Firm",
+                ]
+              : [
+                  "Business Solutions",
+                  "Service Center",
+                  "Professional Services",
+                  "Local Business",
+                  "City Services",
+                ];
+
+        const cities = [
+          "New York",
+          "Los Angeles",
+          "Chicago",
+          "Houston",
+          "Phoenix",
+          "Philadelphia",
+          "San Antonio",
+          "San Diego",
+          "Dallas",
+          "San Jose",
+        ];
+        const streets = [
+          "Main St",
+          "Broadway",
+          "Market St",
+          "Park Ave",
+          "Elm St",
+          "Maple Ave",
+          "Washington Blvd",
+          "Lake Shore Dr",
+        ];
+
+        const demoData = [];
+        for (let i = 1; i <= 8; i++) {
+          const city = cities[i % cities.length];
+          const street = streets[i % streets.length];
+          const type = businessTypes[i % businessTypes.length];
+
+          const placeData = {
+            displayName: { text: `${type} ${String.fromCharCode(65 + i)}` },
+            name: `${type} ${String.fromCharCode(65 + i)}`, // Fallback for backward compatibility if needed
+            formattedAddress: `${100 + i * 50} ${street}, ${city}, NY ${10000 + i}`,
+            nationalPhoneNumber: `+1 (555) ${200 + i}-${1000 + i * 11}`,
+            websiteUri:
+              i % 3 === 0
+                ? "Not listed"
+                : `https://www.${type.toLowerCase().replace(/\s+/g, "")}${i}.com`, // Simulate missing websites
+            rating: (3.2 + Math.random() * 1.8).toFixed(1), // Simulate various ratings
+            userRatingCount: Math.floor(Math.random() * 50), // Simulate lower review counts
+            id: `demo_place_${i}_${Date.now()}`,
+            types: ["establishment", "point_of_interest"],
+          };
+          placeData.analysis = analyzeBusiness({
+            website: placeData.websiteUri,
+            rating: placeData.rating,
+            reviews: placeData.userRatingCount,
+          });
+          demoData.push(placeData);
+        }
+        return demoData;
+      }
+
+      // Feature Analysis Logic - Deep Analysis Engine
+      function analyzeBusiness(business) {
+        let weaknesses = [];
+        let solutions = [];
+
+        const hasWebsite =
+          business.website && business.website !== "Not listed";
+        const reviewCount = parseInt(business.reviews) || 0;
+        const rating =
+          business.rating === "No rating" ? 0 : parseFloat(business.rating);
+
+        // Scenario 1: The "Invisible" Entity (No website + low trust signals)
+        if (!hasWebsite && reviewCount < 10) {
+          weaknesses.push(
+            "Critical trust deficit: Zero digital footprint outside of auto-generated Google listing.",
+          );
+          weaknesses.push(
+            "Revenue leak: High-intent local searches bypass profile due to missing verification signals.",
+          );
+          solutions.push(
+            "Immediate Website Development with Conversion-Optimized (CRO) Landing Pages.",
+          );
+          solutions.push(
+            "Aggressive Local SEO & hyper-local Citation Building Campaign.",
+          );
+        }
+        // Scenario 2: Friction/Poor reputation
+        else if (rating > 0 && rating < 3.8) {
+          if (reviewCount > 50) {
+            weaknesses.push(
+              "Systemic negative brand sentiment cemented by high review volume.",
+            );
+            weaknesses.push(
+              "Conversion killer: Competitors with 4.5+ ratings are actively siphoning BOFU (Bottom of Funnel) leads.",
+            );
+            solutions.push(
+              "High-Volume Reputation Salvage & Review Gating Software Implementation.",
+            );
+          } else {
+            weaknesses.push(
+              "Fragile reputation scorecard: A few negative experiences dominate the brand narrative.",
+            );
+            solutions.push(
+              "Automated Review Generation sequences via Legal Tech/CRM integration.",
+            );
+          }
+          solutions.push(
+            "Targeted Digital PR to flood SERPs with positive, authoritative brand mentions.",
+          );
+        }
+        // Scenario 3: The "Ghost Ship" (Has a site, but terrible local presence)
+        else if (hasWebsite && reviewCount < 15 && rating > 0) {
+          weaknesses.push(
+            "Stagnant local entity authority: Failure to capitalize on existing client satisfaction.",
+          );
+          weaknesses.push(
+            "Lost local-pack visibility forcing over-reliance on expensive paid ads (PPC).",
+          );
+          solutions.push(
+            "Hyper-local Link Building targeting regional directories and community sponsorships.",
+          );
+          solutions.push(
+            "Automated SMS/Email review request workflows post-service delivery.",
+          );
+        }
+        // Scenario 4: The "Complacent Leader" (Good ratings, high volume, but vulnerable)
+        else if (hasWebsite && reviewCount > 100 && rating >= 4.2) {
+          weaknesses.push(
+            "Plateaued growth: Highly vulnerable to aggressive new market entrants utilizing modern SEO/PR.",
+          );
+          weaknesses.push(
+            "Missed national/regional expansion opportunities due to strict local-only focus.",
+          );
+          solutions.push(
+            "Tier-1 Digital PR Campaigns (Data Journalism/Expert Commentary) to build national domain authority.",
+          );
+          solutions.push(
+            "Advanced Technical SEO & Content Silo development to capture high-value generic keywords.",
+          );
+        }
+        // Scenario 5: Missing pieces despite having a website and no rating
+        else if (hasWebsite && rating === 0) {
+          weaknesses.push(
+            "Zero user-generated trust signals severely affecting conversion rates on expensive acquired traffic.",
+          );
+          solutions.push(
+            "Implementation of automated client intake and feedback loops to kickstart reviews.",
+          );
+          solutions.push(
+            "Local PR push: Press releases on company milestones to trigger initial branded search volume.",
+          );
+        }
+        // Fallback for edge cases, ensuring we always provide high-value strategic insight
+        else {
+          // We use deterministic randomization based on business name length to keep it consistent per business
+          const hashIndex = business.name ? business.name.length % 3 : 0;
+
+          const randomWeaknesses = [
+            "Underutilized Google Business Profile features (Posts, Q&A, Services) costing free organic impressions.",
+            "Lack of localized service pages preventing indexation for surrounding city/neighborhood keywords.",
+            "Missing authoritative backlinks causing website to strictly underperform in highly competitive geographic markets.",
+          ];
+          const randomSolutions = [
+            "Entity Optimization Strategy & Semantic SEO overhaul.",
+            "Niche-specific Link Building targeting high DR (Domain Rating) industry publications.",
+            "Data-driven Content Marketing & Digital PR to earn passive editorial links.",
+          ];
+
+          weaknesses.push(randomWeaknesses[hashIndex]);
+          solutions.push(randomSolutions[hashIndex]);
+        }
+
+        return {
+          weaknesses: weaknesses,
+          solutions: solutions,
+        };
+      }
+
+      function updateProgress(percent, status) {
+        document.getElementById("progressBar").style.width = percent + "%";
+        document.getElementById("progressText").textContent = percent + "%";
+        if (status)
+          document.getElementById("progressStatus").textContent = status;
+      }
+
+      function displayResults() {
+        const tbody = document.getElementById("resultsTable");
+        tbody.innerHTML = "";
+
+        if (searchResults.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No results found</td></tr>';
+          return;
+        }
+
+        searchResults.forEach((business, index) => {
+          const row = document.createElement("tr");
+          row.className = "hover:bg-gray-50 transition-colors fade-in";
+          row.style.animationDelay = `${index * 0.05}s`;
+
+          // Format website display
+          let websiteDisplay =
+            '<span class="text-gray-400 text-sm">Not listed</span>';
+          if (business.website && business.website !== "Not listed") {
+            const shortUrl = business.website
+              .replace(/^https?:\/\//, "")
+              .substring(0, 30);
+            websiteDisplay = `<a href="${business.website}" target="_blank" class="text-blue-600 hover:text-blue-900 text-sm hover:underline" title="${business.website}">${shortUrl}${business.website.length > 30 ? "..." : ""}</a>`;
+          }
+
+          // Format rating display
+          const ratingDisplay =
+            business.rating !== "No rating"
+              ? `<div class="flex items-center"><svg class="w-4 h-4 text-yellow-400 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><span class="font-medium">${business.rating}</span></div>`
+              : '<span class="text-gray-400 text-sm">No rating</span>';
+
+          row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                ${business.name.charAt(0)}
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-semibold text-gray-900">${business.name}</div>
+                                ${isDemoMode ? '<span class="text-xs text-orange-500 font-medium">DEMO</span>' : ""}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-700 max-w-xs leading-relaxed">${business.address}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-700 font-mono">${business.phone}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        ${websiteDisplay}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        ${ratingDisplay}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${business.reviews > 100 ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}">
+                            ${business.reviews} reviews
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="space-y-2 text-sm">
+                            <div>
+                                <span class="font-semibold text-red-600 block text-xs uppercase tracking-wide">Identified Weakness:</span>
+                                <ul class="list-disc list-inside text-gray-700">
+                                    ${business.analysis.weaknesses.map((w) => `<li>${w}</li>`).join("")}
+                                </ul>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-green-600 block text-xs uppercase tracking-wide">Recommended Solution:</span>
+                                <ul class="list-disc list-inside text-gray-700">
+                                    ${business.analysis.solutions.map((s) => `<li>${s}</li>`).join("")}
+                                </ul>
+                            </div>
+                        </div>
+                    </td>
+                `;
+
+          tbody.appendChild(row);
+        });
+
+        const dataSource = isDemoMode ? " (Demo Data)" : " (Live Data)";
+        document.getElementById("resultCount").innerHTML =
+          `Showing <strong>${searchResults.length}</strong> businesses${dataSource}`;
+        document.getElementById("resultsSection").classList.remove("hidden");
+      }
+
+      function resetSearch() {
+        isSearching = false;
+        document.getElementById("searchBtn").disabled = false;
+        document.getElementById("searchBtn").innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <span>Search Businesses</span>
+            `;
+        document.getElementById("progressContainer").classList.add("hidden");
+        setTimeout(() => updateProgress(0, "Ready..."), 500);
+      }
+
+      function clearResults() {
+        document.getElementById("keywords").value = "";
+        document.getElementById("resultsSection").classList.add("hidden");
+        document.getElementById("emptyState").classList.remove("hidden");
+        document.getElementById("resultsTable").innerHTML = "";
+        document.getElementById("alertBox").classList.add("hidden");
+        searchResults = [];
+        updateProgress(0, "Ready...");
+      }
+
+      function downloadExcel() {
+        if (searchResults.length === 0) {
+          showToast("No data to download");
+          return;
+        }
+
+        // Create CSV content
+        const headers = [
+          "Business Name",
+          "Address",
+          "Phone Number",
+          "Website",
+          "Average Rating",
+          "Number of Reviews",
+          "Identified Weaknesses",
+          "Recommended Solutions",
+          "Place ID",
+          "Data Source",
+        ];
+        const csvContent = [
+          headers.join(","),
+          ...searchResults.map((b) => {
+            const weaknessesStr = b.analysis.weaknesses.join("; ");
+            const solutionsStr = b.analysis.solutions.join("; ");
+            return [
+              `"${b.name}"`,
+              `"${b.address}"`,
+              `"${b.phone}"`,
+              `"${b.website}"`,
+              b.rating,
+              b.reviews,
+              `"${weaknessesStr}"`,
+              `"${solutionsStr}"`,
+              b.placeId,
+              isDemoMode ? "DEMO" : "LIVE",
+            ].join(",");
+          }),
+        ].join("\n");
+
+        // Download
+        const blob = new Blob([csvContent], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        const timestamp = new Date().toISOString().split("T")[0];
+        const source = isDemoMode ? "demo" : "results";
+
+        link.setAttribute("href", url);
+        link.setAttribute("download", `business_${source}_${timestamp}.csv`);
+        link.style.visibility = "hidden";
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        showToast(`Downloaded ${searchResults.length} records`);
+      }
+
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        document.getElementById("toastMessage").textContent = message;
+        toast.classList.remove("translate-y-20", "opacity-0");
+
+        setTimeout(() => {
+          toast.classList.add("translate-y-20", "opacity-0");
+        }, 3000);
+      }
+
+      // Enter key support
+      document.getElementById("keywords").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") searchBusinesses();
+      });
+    </script>
+  </body>
+</html>
